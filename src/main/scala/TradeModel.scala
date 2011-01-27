@@ -1,4 +1,4 @@
-package net.debasishg.domain.trade.dsl
+package net.debasishg.domain.trade.model
 
 /**
  * Created by IntelliJ IDEA.
@@ -46,7 +46,7 @@ trait TradeModel {this: RefModel =>
   def principal(trade: Trade) = trade.unitPrice * trade.quantity
 
   // combinator to value a tax/fee for a specific trade
-  private[dsl] val valueAs: Trade => TaxFeeId => BigDecimal = {trade => {tid =>
+  private[model] val valueAs: Trade => TaxFeeId => BigDecimal = {trade => {tid =>
     ((rates get tid) map (_ * principal(trade))) getOrElse (BigDecimal(0)) }}
 
   // all tax/fees for a specific trade
@@ -72,10 +72,6 @@ trait TradeModel {this: RefModel =>
     unitPrice: BigDecimal, quantity: BigDecimal) =
     (validUnitPrice(unitPrice).liftFailNel |@|
       validQuantity(quantity).liftFailNel) { (u, q) => Trade(account, instrument, refNo, market, u, q) }
-
-  val enrichTradeWith: Trade => List[(TaxFeeId, BigDecimal)] => BigDecimal = {trade => {taxes =>
-    taxes.foldLeft(principal(trade))((a, b) => a + b._2)
-  }}
 
   /**
    * define a set of lenses for functional updation

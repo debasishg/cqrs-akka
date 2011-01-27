@@ -1,4 +1,4 @@
-package net.debasishg.domain.trade.dsl
+package net.debasishg.domain.trade.service
 
 /**
  * Created by IntelliJ IDEA.
@@ -24,21 +24,24 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
 
   describe("trading service") {
     it("should create and operate on multiple trades") {
-      import TradeModel._
       import TradingService._
       import java.util.Calendar
+      import net.debasishg.domain.trade.model.TradeModel._
 
       val trd1 = newTrade("a-123", "google", "r-123", HongKong, 12.25, 200).toOption.get
       val trd2 = newTrade("a-125", "ibm", "r-125", Tokyo, 22.25, 250).toOption.get
 
+      // start command store and query store actors
       val qs: ActorRef = actorOf(new QueryStore)
       implicit val cs: ActorRef = actorOf(new CommandStore(qs))
       qs.start
       cs.start
 
+      // domain logic
       val t2 = doEnrichTrade(doAddValueDate(trd1))
       val t4 = doEnrichTrade(doAddValueDate(trd2))
 
+      // get snapshot to see if command store has proper logs of events
       val es = (cs !! Snapshot).as[Set[Trade]].getOrElse(throw new Exception("cannot get trades from command store"))
       es.size should equal(2)
       es.toList should equal(List(t2, t4))
@@ -52,8 +55,12 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
         vt.get(Calendar.DAY_OF_MONTH) - ct.get(Calendar.DAY_OF_MONTH) should equal(3)
       }
 
+      // query store should have the appropriate models
       val ts = (qs !! QuerySnapshot).as[List[Trade]].getOrElse(throw new Exception("cannot get trades from query store"))
       ts should equal(es.toList)
+
+      qs.stop
+      cs.stop
     }
   }
 }

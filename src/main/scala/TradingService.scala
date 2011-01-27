@@ -1,4 +1,4 @@
-package net.debasishg.domain.trade.dsl
+package net.debasishg.domain.trade.service
 
 /**
  * Created by IntelliJ IDEA.
@@ -16,6 +16,7 @@ import akka.actor.{Actor, ActorRef}
 import Actor._
 
 object TradingService {
+  import net.debasishg.domain.trade.model._
   import TradeModel._
 
   // service methods
@@ -26,7 +27,7 @@ object TradingService {
       makeTrade(account, instrument, refNo, market, unitPrice, quantity) // @tofix : additional args
 
   // refer To Mock a Mockingbird
-  private[dsl] def kestrel[T](trade: T, proc: T => T)(effect: => Unit) = {
+  private[service] def kestrel[T](trade: T, proc: T => T)(effect: => Unit) = {
     val t = proc(trade)
     effect
     t
