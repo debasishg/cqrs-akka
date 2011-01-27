@@ -120,4 +120,4 @@ trait TradeModel {this: RefModel =>
   }
 }
 
-object TradeModel extends TradeModel with ExecutionModel with OrderModel with RefModel with ContractNoteModel
+object TradeModel extends TradeModel with ExecutionModel with OrderModel with RefModel 
