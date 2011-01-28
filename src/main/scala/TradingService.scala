@@ -13,13 +13,22 @@ import Scalaz._
 
 import java.util.{Date, Calendar}
 import akka.actor.{Actor, ActorRef}
+import akka.config.Supervision.{OneForOneStrategy,Permanent}
 import Actor._
 
-object TradingService {
-  import net.debasishg.domain.trade.model._
-  import TradeModel._
+import net.debasishg.domain.trade.model._
+import TradeModel._
 
-  // service methods
+// command events
+// processed by CommandStore and forwarded to QueryStore
+case class TradeEnriched(trade: Trade, closure: TradeEvent)
+case class ValueDateAdded(trade: Trade, closure: TradeEvent)
+
+case object Snapshot
+case object QueryAllTrades
+
+class TradingClient {
+  val ts = Actor.registry.actorsFor(classOf[TradingServer]).head
 
   // create a trade : wraps the model method
   def newTrade(account: Account, instrument: Instrument, refNo: String, market: Market,
@@ -34,57 +43,89 @@ object TradingService {
   }
 
   // enrich trade
-  def doEnrichTrade(trade: Trade)(implicit commandStore: ActorRef) = 
+  def doEnrichTrade(trade: Trade) = 
     kestrel(trade, enrichTrade) { 
-      commandStore ! TradeEnriched(trade, enrichTrade)
+      ts ! TradeEnriched(trade, enrichTrade)
     }
 
   // add value date
-  def doAddValueDate(trade: Trade)(implicit commandStore: ActorRef) = 
+  def doAddValueDate(trade: Trade) = 
     kestrel(trade, addValueDate) { 
-      commandStore ! ValueDateAdded(trade, addValueDate)
+      ts ! ValueDateAdded(trade, addValueDate)
     }
 
-  type TradeEvent = (Trade => Trade)
+  def getCommandSnapshot = 
+    (ts !! Snapshot).as[Set[Trade]].getOrElse(throw new Exception("cannot get trades from trade server"))
 
-  // command events
-  // processed by CommandStore and forwarded to QueryStore
-  case class TradeEnriched(trade: Trade, closure: TradeEvent)
-  case class ValueDateAdded(trade: Trade, closure: TradeEvent)
+  def getAllTrades =
+    (ts !! QueryAllTrades).as[List[Trade]].getOrElse(throw new Exception("cannot get trades from trade server"))
+}
 
-  case object Snapshot
+// CommandStore modeled as an actor
+class CommandStore(qryStore: ActorRef) extends Actor {
+  private var events = Map.empty[Trade, List[TradeEvent]]
 
-  // CommandStore modeled as an actor
-  class CommandStore(qryStore: ActorRef) extends Actor {
-    private var events = Map.empty[Trade, List[TradeEvent]]
+  def receive = {
+    case m@TradeEnriched(trade, closure) => 
+      events += ((trade, events.getOrElse(trade, List.empty[TradeEvent]) :+ closure))
+      qryStore forward m
+    case m@ValueDateAdded(trade, closure) => 
+      events += ((trade, events.getOrElse(trade, List.empty[TradeEvent]) :+ closure))
+      qryStore forward m
+    case Snapshot => 
+      self.reply(events.keys.map {trade =>
+        events(trade).foldLeft(trade)((t, e) => e(t))
+      })
+  }
+}
 
-    def receive = {
-      case m@TradeEnriched(trade, closure) => 
-        events += ((trade, events.getOrElse(trade, List.empty[TradeEvent]) :+ closure))
-        qryStore forward m
-      case m@ValueDateAdded(trade, closure) => 
-        events += ((trade, events.getOrElse(trade, List.empty[TradeEvent]) :+ closure))
-        qryStore forward m
-      case Snapshot => 
-        self.reply(events.keys.map {trade =>
-          events(trade).foldLeft(trade)((t, e) => e(t))
-        })
-    }
+// QueryStore modeled as an actor
+class QueryStore extends Actor {
+  private var trades = new collection.immutable.TreeSet[Trade]()(Ordering.by(_.refNo))
+
+  def receive = {
+    case TradeEnriched(trade, closure) => 
+      trades += trades.find(_ == trade).map(closure(_)).getOrElse(closure(trade))
+    case ValueDateAdded(trade, closure) => 
+      trades += trades.find(_ == trade).map(closure(_)).getOrElse(closure(trade))
+    case QueryAllTrades =>
+      self.reply(trades.toList)
+  }
+}
+
+// Creates and links Storage
+trait StoreFactory {this: Actor =>
+  val queryStore = this.self.spawnLink[QueryStore] // starts and links QueryStore
+  val commandStore = actorOf(new CommandStore(queryStore))
+  this.self.link(commandStore)
+  commandStore.start
+}
+
+trait TradingServer extends Actor {
+  self.faultHandler = OneForOneStrategy(List(classOf[Exception]),5, 5000)
+  val commandStore: ActorRef
+  val queryStore: ActorRef
+
+  // actor message handler
+  def receive = { 
+    case m@TradeEnriched(trade, closure) => 
+      commandStore forward m
+    case m@ValueDateAdded(trade, closure) => 
+      commandStore forward m
+    case m@Snapshot => 
+      commandStore forward m
+    case m@QueryAllTrades =>
+      queryStore forward m
   }
 
-  case object QuerySnapshot
-
-  // QueryStore modeled as an actor
-  class QueryStore extends Actor {
-    private var trades = new collection.immutable.TreeSet[Trade]()(Ordering.by(_.refNo))
-
-    def receive = {
-      case TradeEnriched(trade, closure) => 
-        trades += trades.find(_ == trade).map(closure(_)).getOrElse(closure(trade))
-      case ValueDateAdded(trade, closure) => 
-        trades += trades.find(_ == trade).map(closure(_)).getOrElse(closure(trade))
-      case QuerySnapshot =>
-        self.reply(trades.toList)
-    }
+  override def postStop = {
+    self.unlink(queryStore)
+    self.unlink(commandStore)
+    queryStore.stop
+    commandStore.stop
   }
+
+}
+
+class TradingService extends TradingServer with StoreFactory {
 }
