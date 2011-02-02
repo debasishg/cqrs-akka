@@ -15,6 +15,7 @@ import java.util.{Date, Calendar}
 import akka.actor.{Actor, ActorRef}
 import akka.config.Supervision.{OneForOneStrategy,Permanent}
 import Actor._
+import akka.routing.{Listeners, Listen}
 
 import net.debasishg.domain.trade.model._
 import TradeModel._
@@ -62,16 +63,18 @@ class TradingClient {
 }
 
 // CommandStore modeled as an actor
-class CommandStore(qryStore: ActorRef) extends Actor {
+// It also keeps a list of listeners to publish events to them
+// Currently the only listener added is the QueryStore
+class CommandStore extends Actor with Listeners {
   private var events = Map.empty[Trade, List[TradeEvent]]
 
-  def receive = {
+  def receive = listenerManagement orElse {
     case m@TradeEnriched(trade, closure) => 
       events += ((trade, events.getOrElse(trade, List.empty[TradeEvent]) :+ closure))
-      qryStore forward m
+      gossip(m)
     case m@ValueDateAdded(trade, closure) => 
       events += ((trade, events.getOrElse(trade, List.empty[TradeEvent]) :+ closure))
-      qryStore forward m
+      gossip(m)
     case Snapshot => 
       self.reply(events.keys.map {trade =>
         events(trade).foldLeft(trade)((t, e) => e(t))
@@ -96,9 +99,10 @@ class QueryStore extends Actor {
 // Creates and links Storage
 trait StoreFactory {this: Actor =>
   val queryStore = this.self.spawnLink[QueryStore] // starts and links QueryStore
-  val commandStore = actorOf(new CommandStore(queryStore))
+  val commandStore = actorOf[CommandStore]
   this.self.link(commandStore)
   commandStore.start
+  commandStore ! Listen(queryStore)
 }
 
 trait TradingServer extends Actor {
@@ -124,7 +128,6 @@ trait TradingServer extends Actor {
     queryStore.stop
     commandStore.stop
   }
-
 }
 
 class TradingService extends TradingServer with StoreFactory {
