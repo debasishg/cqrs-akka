@@ -21,7 +21,7 @@ import net.debasishg.domain.trade.model._
 import TradeModel._
 
 // command events
-// processed by CommandStore and forwarded to QueryStore
+// processed by EventStore and forwarded to QueryStore
 case class TradeEnriched(trade: Trade, closure: TradeEvent)
 case class ValueDateAdded(trade: Trade, closure: TradeEvent)
 
@@ -62,10 +62,10 @@ class TradingClient {
     (ts !! QueryAllTrades).as[List[Trade]].getOrElse(throw new Exception("cannot get trades from trade server"))
 }
 
-// CommandStore modeled as an actor
+// EventStore modeled as an actor
 // It also keeps a list of listeners to publish events to them
 // Currently the only listener added is the QueryStore
-class CommandStore extends Actor with Listeners {
+class EventStore extends Actor with Listeners {
   private var events = Map.empty[Trade, List[TradeEvent]]
 
   def receive = listenerManagement orElse {
@@ -99,34 +99,34 @@ class QueryStore extends Actor {
 // Creates and links Storage
 trait StoreFactory {this: Actor =>
   val queryStore = this.self.spawnLink[QueryStore] // starts and links QueryStore
-  val commandStore = actorOf[CommandStore]
-  this.self.link(commandStore)
-  commandStore.start
-  commandStore ! Listen(queryStore)
+  val eventStore = actorOf[EventStore]
+  this.self.link(eventStore)
+  eventStore.start
+  eventStore ! Listen(queryStore)
 }
 
 trait TradingServer extends Actor {
   self.faultHandler = OneForOneStrategy(List(classOf[Exception]),5, 5000)
-  val commandStore: ActorRef
+  val eventStore: ActorRef
   val queryStore: ActorRef
 
   // actor message handler
   def receive = { 
     case m@TradeEnriched(trade, closure) => 
-      commandStore forward m
+      eventStore forward m
     case m@ValueDateAdded(trade, closure) => 
-      commandStore forward m
+      eventStore forward m
     case m@Snapshot => 
-      commandStore forward m
+      eventStore forward m
     case m@QueryAllTrades =>
       queryStore forward m
   }
 
   override def postStop = {
     self.unlink(queryStore)
-    self.unlink(commandStore)
+    self.unlink(eventStore)
     queryStore.stop
-    commandStore.stop
+    eventStore.stop
   }
 }
 
