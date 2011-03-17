@@ -21,7 +21,7 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
   import akka.actor.{Actor, ActorRef}
   import Actor._
 
-  describe("trading service") {
+  describe("trading service that logs events asynchronously") {
     it("should create and operate on multiple trades") {
       val ts = actorOf[TradingService].start
       val c = new TradingClient
@@ -45,6 +45,55 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
       trades.size should equal(2)
       trades should equal(es.toList)
       ts.stop
+    }
+  }
+
+  describe("trading service that logs events using Writer monad") {
+    it("should create and operate on a trade") {
+      import net.debasishg.domain.trade.model._
+      import Writer._
+
+      val trd = makeTrade("a-123", "google", "r-123", HongKong, 12.25, 200).toOption.get
+
+      val r = for {
+        t1 <- enrichTrade(trd) withlog (trd, enrichTrade)
+        t2 <- addValueDate(t1) withlog (trd, addValueDate)
+      } yield t2
+
+      val m = r.log.groupBy(_._1)
+      val x =
+        m.keys.map {t =>
+          m(t).map(_._2).foldLeft(t)((a,e) => e(a))
+        }
+      x.size should equal(1)
+      x.head.taxFees.get.size should equal(2) 
+      x.head.netAmount.get should equal(3307.5000)
+    }
+
+    it("should create and operate on multiple trades") {
+      import net.debasishg.domain.trade.model._
+      import Writer._
+
+      val trds = List(
+        makeTrade("a-123", "google", "r-123", HongKong, 12.25, 200).toOption.get,
+        makeTrade("a-125", "ibm", "r-125", Tokyo, 22.25, 250).toOption.get
+      )
+
+      val t =
+      trds map {trd =>
+        val r = for {
+          t1 <- enrichTrade(trd) withlog (trd, enrichTrade)
+          t2 <- addValueDate(t1) withlog (trd, addValueDate)
+        } yield t2
+
+        val m = r.log.groupBy(_._1)
+        val x =
+          m.keys.map {t =>
+            m(t).map(_._2).foldLeft(t)((a,e) => e(a))
+          }
+        x.head
+      }
+      t.size should equal(2)
     }
   }
 }
