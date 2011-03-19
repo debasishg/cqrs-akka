@@ -17,6 +17,7 @@ import org.junit.runner.RunWith
 class TradingServiceSpec extends Spec with ShouldMatchers {
 
   import java.util.Calendar
+  import net.debasishg.domain.trade.model._
   import net.debasishg.domain.trade.model.TradeModel._
   import akka.actor.{Actor, ActorRef}
   import Actor._
@@ -50,8 +51,7 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
 
   describe("trading service that logs events using Writer monad") {
     it("should create and operate on a trade") {
-      import net.debasishg.domain.trade.model._
-      import Writer._
+      import EventLogger._
 
       val trd = makeTrade("a-123", "google", "r-123", HongKong, 12.25, 200).toOption.get
 
@@ -71,8 +71,7 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
     }
 
     it("should create and operate on multiple trades") {
-      import net.debasishg.domain.trade.model._
-      import Writer._
+      import EventLogger._
 
       val trds = List(
         makeTrade("a-123", "google", "r-123", HongKong, 12.25, 200).toOption.get,
@@ -94,6 +93,24 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
         x.head
       }
       t.size should equal(2)
+    }
+  }
+
+  describe("trading service that logs events using State monad") {
+    it("should create and operate on a trade") {
+      import scalaz._
+      import Scalaz._
+
+      val trd = makeTrade("a-123", "google", "r-123", HongKong, 12.25, 200).toOption.get
+
+      val x =
+        for {
+          _ <- init[Trade]
+          _ <- modify((t: Trade) => refNoLens.set(t, "XXX-123"))
+          u <- modify((t: Trade) => taxFeeLens.set(t, some(List((TradeTax, 102.25), (Commission, 25.65)))))
+        } yield(u)
+
+      x ~> trd == trd.copy(refNo = "XXX-123")
     }
   }
 }
