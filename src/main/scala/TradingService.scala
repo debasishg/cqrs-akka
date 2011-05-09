@@ -8,9 +8,6 @@ package net.debasishg.domain.trade.service
  * To change this template use File | Settings | File Templates.
  */
 
-import scalaz._
-import Scalaz._
-
 import java.util.{Date, Calendar}
 import akka.actor.{Actor, ActorRef}
 import akka.config.Supervision.{OneForOneStrategy,Permanent}

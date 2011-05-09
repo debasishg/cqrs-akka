@@ -8,10 +8,9 @@ class CQRSAkkaProject(info: ProjectInfo) extends DefaultProject(info) with AkkaB
   val akkaRepo = "Akka Repository" at "http://akka.io/repository"
 
   lazy val scalazDep = "org.scalaz" %% "scalaz-core" % "6.0-SNAPSHOT"
-  val akkaActor = "se.scalablesolutions.akka" % "akka-actor"  % "1.0-RC5"
-  val akkaTypedActor = "se.scalablesolutions.akka" % "akka-typed-actor"  % "1.0-RC5"
+  val akkaActor = "se.scalablesolutions.akka" % "akka-actor"  % "1.1-RC1"
 
-  val scalatest = "org.scalatest" % "scalatest" % "1.2" % "test"
+  val scalatest = "org.scalatest" % "scalatest" % "1.4.RC2" % "test"
 
   val junit = "junit" % "junit" % "4.8.1"
 
