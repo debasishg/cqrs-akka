@@ -13,6 +13,7 @@ import akka.actor.{Actor, ActorRef}
 import akka.config.Supervision.{OneForOneStrategy,Permanent}
 import Actor._
 import akka.routing.{Listeners, Listen}
+import akka.dispatch.Future
 
 import net.debasishg.domain.trade.model._
 import TradeModel._
@@ -22,6 +23,7 @@ import TradeModel._
 case class TradeEnriched(trade: Trade, closure: TradeEvent)
 case class ValueDateAdded(trade: Trade, closure: TradeEvent)
 
+case object Closing
 case object Snapshot
 case object QueryAllTrades
 
@@ -41,22 +43,45 @@ class TradingClient {
   }
 
   // enrich trade
+  // side-effect: actor message send non-blocking
   def doEnrichTrade(trade: Trade) = 
     kestrel(trade, enrichTrade) { 
       ts ! TradeEnriched(trade, enrichTrade)
     }
 
   // add value date
+  // side-effect: actor message send non-blocking
   def doAddValueDate(trade: Trade) = 
     kestrel(trade, addValueDate) { 
       ts ! ValueDateAdded(trade, addValueDate)
     }
 
-  def getCommandSnapshot = 
-    (ts !! Snapshot).as[Set[Trade]].getOrElse(throw new Exception("cannot get trades from trade server"))
+  def doClose = (ts ? Closing).as[String]
 
-  def getAllTrades =
-    (ts !! QueryAllTrades).as[List[Trade]].getOrElse(throw new Exception("cannot get trades from trade server"))
+  // non-blocking: returns a Future
+  def getCommandSnapshot = (ts ? Snapshot).mapTo[Set[Trade]]
+
+  // non-blocking: returns a Future
+  def getAllTrades = (ts ? QueryAllTrades).mapTo[List[Trade]]
+
+  // non-blocking and composition of futures
+  // a function to operate on every trade in the list of trades
+  def onTrades[T](fn: Trade => T) = 
+    getAllTrades.map {trades =>
+      Future.traverse(trades) {trade =>
+        Future { fn(trade) }
+      }
+    }
+
+  def sumTaxFees = { 
+    val maybeTaxFees =
+      onTrades[BigDecimal] {trade =>
+        trade.taxFees
+             .map(_.map(_._2).foldLeft(BigDecimal(0))(_ + _))
+             .getOrElse(sys.error("cannot get tax/fees"))
+      }
+    maybeTaxFees.get.map(_.sum).get
+  }
 }
 
 // EventStore modeled as an actor
@@ -76,6 +101,8 @@ class EventStore extends Actor with Listeners {
       self.reply(events.keys.map {trade =>
         events(trade).foldLeft(trade)((t, e) => e(t))
       })
+    case Closing =>
+      self.reply("closed")
   }
 }
 
@@ -117,6 +144,8 @@ trait TradingServer extends Actor {
       eventStore forward m
     case m@QueryAllTrades =>
       queryStore forward m
+    case m@Closing =>
+      eventStore forward m
   }
 
   override def postStop = {

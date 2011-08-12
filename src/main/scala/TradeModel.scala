@@ -13,7 +13,7 @@ import Scalaz._
 
 import java.util.{Date, Calendar}
 
-trait TradeModel {this: RefModel =>
+trait TradeModel extends Serializable {this: RefModel =>
 
   // the main domain class
   case class Trade(account: Account, instrument: Instrument, refNo: String, market: Market,
@@ -25,10 +25,10 @@ trait TradeModel {this: RefModel =>
   }
 
   // various tax/fees to be paid when u do a trade
-  sealed trait TaxFeeId
+  sealed trait TaxFeeId extends Serializable 
   case object TradeTax extends TaxFeeId
   case object Commission extends TaxFeeId
-  case object VAT extends TaxFeeId
+  case object VAT extends TaxFeeId 
 
   // rates of tax/fees expressed as fractions of the principal of the trade
   val rates: Map[TaxFeeId, BigDecimal] = Map(TradeTax -> 0.2, Commission -> 0.15, VAT -> 0.1)

@@ -8,14 +8,14 @@ package net.debasishg.domain.trade.model
  * To change this template use File | Settings | File Templates.
  */
 
-trait RefModel {
+trait RefModel extends Serializable {
   type Instrument = String
   type Account = String
   type NetAmount = BigDecimal
   type Customer = String
   type Broker = String
 
-  sealed trait Market
+  sealed trait Market 
   case object HongKong extends Market
   case object Singapore extends Market
   case object NewYork extends Market

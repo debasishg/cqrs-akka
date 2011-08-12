@@ -37,14 +37,40 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
       val t2 = doEnrichTrade(doAddValueDate(trd2))
 
       // build command snapshot to get latest states of trades
-      val es = getCommandSnapshot
+      val es = getCommandSnapshot.get
       es.size should equal(2)
       es.toList should equal(List(t1, t2))
 
       // fetch from query store should give the same set
-      val trades = getAllTrades
+      val trades = getAllTrades.get
       trades.size should equal(2)
       trades should equal(es.toList)
+      ts.stop
+    }
+  }
+
+  describe("trading service that does computation with futures") {
+    it("should compute tax/fees over all trades in nonblocking mode") {
+      val ts = actorOf[TradingService].start
+      val c = new TradingClient
+      import c._
+
+      // make trades
+      val trds = 
+        List(
+          newTrade("a-123", "google", "r-123", HongKong, 12.25, 200).toOption.get,
+          newTrade("a-124", "ibm", "r-124", Tokyo, 22.25, 250).toOption.get,
+          newTrade("a-125", "cisco", "r-125", NewYork, 20.25, 150).toOption.get,
+          newTrade("a-126", "ibm", "r-127", Singapore, 22.25, 250).toOption.get)
+
+      // domain logic
+      val enrichedTrades = trds.map(trd => doEnrichTrade(doAddValueDate(trd)))
+
+      // send closing message
+      doClose.get should equal("closed")
+
+      // sum all tax/fees
+      sumTaxFees should equal(6370.625)
       ts.stop
     }
   }
