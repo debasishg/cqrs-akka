@@ -49,6 +49,25 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
     }
   }
 
+  def makeTrades = {
+    val securities = Vector("google", "ibm", "cisco", "oracle")
+    val markets = Vector(HongKong, Singapore, NewYork, Tokyo)
+    def giveUnitPrice = BigDecimal(new util.Random().nextInt(100) + 1)
+    def giveQuantity = BigDecimal(new util.Random().nextInt(500) + 1)
+    def giveAccount = "a-" + new util.Random().nextInt(500).toString
+    def giveRefNo = "r-" + new util.Random().nextInt(500).toString
+
+    val c = new TradingClient
+    import c._
+    for(i <- 1 to 1000)
+      yield newTrade(giveAccount, 
+               securities(new util.Random().nextInt(4)),
+               giveRefNo + i.toString,
+               markets(new util.Random().nextInt(4)),
+               giveUnitPrice,
+               giveQuantity).toOption.get
+  }
+
   describe("trading service that does computation with futures") {
     it("should compute tax/fees over all trades in nonblocking mode") {
       val ts = actorOf[TradingService].start
@@ -70,7 +89,73 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
       doClose.get should equal("closed")
 
       // sum all tax/fees
-      sumTaxFees should equal(6370.625)
+      sumTaxFees(getAllTrades.get) should equal(6370.625)
+      ts.stop
+    }
+  }
+
+  describe("trading service that does computation with futures in volumes") {
+    it("should compute tax/fees over all trades in nonblocking mode") {
+      val ts = actorOf[TradingService].start
+      val c = new TradingClient
+      import c._
+
+      // make trades
+      val trds = makeTrades
+      println(trds.size)
+
+      // domain logic
+      val enrichedTrades = trds.map(trd => doEnrichTrade(doAddValueDate(trd)))
+      println(enrichedTrades.size)
+
+      // send closing message
+      doClose.get should equal("closed")
+      Thread.sleep(2000)
+      println(getAllTrades.get.size)
+
+      // sum all tax/fees
+      val start = System.nanoTime
+      println(sumTaxFees(getAllTrades.get))
+      val end = System.nanoTime
+      println("elapsed: " + (end - start))
+      // sumTaxFees should equal(6370.625)
+      ts.stop
+    }
+  }
+
+  describe("trading service that does computation in volumes") {
+    it("should compute tax/fees over all trades in nonblocking mode") {
+      val ts = actorOf[TradingService].start
+      val c = new TradingClient
+      import c._
+
+      // make trades
+      val trds = makeTrades
+      println(trds.size)
+
+      // domain logic
+      val enrichedTrades = trds.map(trd => doEnrichTrade(doAddValueDate(trd)))
+      println(enrichedTrades.size)
+
+      // send closing message
+      doClose.get should equal("closed")
+      Thread.sleep(3000)
+
+      val start = System.nanoTime
+      val trades = getAllTrades.get
+      println(trades.size)
+
+      val taxFees = 
+      trades.map {trade =>
+        Thread.sleep(10)
+        trade.taxFees
+             .map(_.map(_._2).foldLeft(BigDecimal(0))(_ + _))
+             .getOrElse(sys.error("cannot get tax/fees"))
+      }
+
+      println(taxFees.sum)
+      val end = System.nanoTime
+      println("elapsed: " + (end - start))
       ts.stop
     }
   }

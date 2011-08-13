@@ -62,25 +62,25 @@ class TradingClient {
   def getCommandSnapshot = (ts ? Snapshot).mapTo[Set[Trade]]
 
   // non-blocking: returns a Future
-  def getAllTrades = (ts ? QueryAllTrades).mapTo[List[Trade]]
+  def getAllTrades = (ts ? QueryAllTrades).as[List[Trade]]
 
   // non-blocking and composition of futures
   // a function to operate on every trade in the list of trades
-  def onTrades[T](fn: Trade => T) = 
-    getAllTrades.map {trades =>
-      Future.traverse(trades) {trade =>
-        Future { fn(trade) }
-      }
+  def onTrades[T](trades: List[Trade])(fn: Trade => T) = 
+    Future.traverse(trades) {trade =>
+      Future { fn(trade) }
     }
 
-  def sumTaxFees = { 
+  def sumTaxFees(trades: List[Trade]) = { 
+    println("size = " + trades.size)
     val maybeTaxFees =
-      onTrades[BigDecimal] {trade =>
+      onTrades[BigDecimal](trades) {trade =>
+        Thread.sleep(10)
         trade.taxFees
              .map(_.map(_._2).foldLeft(BigDecimal(0))(_ + _))
              .getOrElse(sys.error("cannot get tax/fees"))
       }
-    maybeTaxFees.get.map(_.sum).get
+    maybeTaxFees.get.sum
   }
 }
 
