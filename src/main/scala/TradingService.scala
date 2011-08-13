@@ -75,7 +75,7 @@ class TradingClient {
     println("size = " + trades.size)
     val maybeTaxFees =
       onTrades[BigDecimal](trades) {trade =>
-        Thread.sleep(10)
+        // Thread.sleep(10)
         trade.taxFees
              .map(_.map(_._2).foldLeft(BigDecimal(0))(_ + _))
              .getOrElse(sys.error("cannot get tax/fees"))

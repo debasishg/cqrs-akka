@@ -49,6 +49,8 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
     }
   }
 
+  // make bulk trades
+  // 1000 trades with ransdom account / instrument and other data
   def makeTrades = {
     val securities = Vector("google", "ibm", "cisco", "oracle")
     val markets = Vector(HongKong, Singapore, NewYork, Tokyo)
@@ -110,7 +112,7 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
 
       // send closing message
       doClose.get should equal("closed")
-      Thread.sleep(2000)
+      // Thread.sleep(2000)
       println(getAllTrades.get.size)
 
       // sum all tax/fees
@@ -118,7 +120,6 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
       println(sumTaxFees(getAllTrades.get))
       val end = System.nanoTime
       println("elapsed: " + (end - start))
-      // sumTaxFees should equal(6370.625)
       ts.stop
     }
   }
@@ -139,7 +140,7 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
 
       // send closing message
       doClose.get should equal("closed")
-      Thread.sleep(3000)
+      // Thread.sleep(3000)
 
       val start = System.nanoTime
       val trades = getAllTrades.get
@@ -147,7 +148,7 @@ class TradingServiceSpec extends Spec with ShouldMatchers {
 
       val taxFees = 
       trades.map {trade =>
-        Thread.sleep(10)
+        // Thread.sleep(10)
         trade.taxFees
              .map(_.map(_._2).foldLeft(BigDecimal(0))(_ + _))
              .getOrElse(sys.error("cannot get tax/fees"))
