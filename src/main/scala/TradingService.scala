@@ -1,19 +1,12 @@
 package net.debasishg.domain.trade.service
 
-/**
- * Created by IntelliJ IDEA.
- * User: debasish
- * Date: 23/12/10
- * Time: 6:06 PM
- * To change this template use File | Settings | File Templates.
- */
-
 import java.util.{Date, Calendar}
-import akka.actor.{Actor, ActorRef}
-import akka.config.Supervision.{OneForOneStrategy,Permanent}
+import akka.actor.{Actor, ActorRef, Props, ActorSystem}
 import Actor._
 import akka.routing.{Listeners, Listen}
-import akka.dispatch.Future
+import akka.dispatch.{Future, Dispatchers, Await}
+import akka.util.Timeout
+import akka.util.duration._
 
 import net.debasishg.domain.trade.model._
 import TradeModel._
@@ -27,8 +20,9 @@ case object Closing
 case object Snapshot
 case object QueryAllTrades
 
-class TradingClient {
-  val ts = Actor.registry.actorsFor(classOf[TradingServer]).head
+class TradingClient(ts: ActorRef, asys: ActorSystem) {
+  implicit val timeout = Timeout(12 millis)
+  implicit val dispatcher = asys.dispatcherFactory.lookup("trading-dispatcher")
 
   // create a trade : wraps the model method
   def newTrade(account: Account, instrument: Instrument, refNo: String, market: Market,
@@ -56,31 +50,31 @@ class TradingClient {
       ts ! ValueDateAdded(trade, addValueDate)
     }
 
-  def doClose = (ts ? Closing).as[String]
+  def doClose = (ts ? Closing).mapTo[String]
 
   // non-blocking: returns a Future
   def getCommandSnapshot = (ts ? Snapshot).mapTo[Set[Trade]]
 
   // non-blocking: returns a Future
-  def getAllTrades = (ts ? QueryAllTrades).as[List[Trade]]
+  def getAllTrades = (ts ? QueryAllTrades).mapTo[List[Trade]]
 
   // non-blocking and composition of futures
   // a function to operate on every trade in the list of trades
-  def onTrades[T](trades: List[Trade])(fn: Trade => T) = 
+  def onTrades[T](trades: List[Trade])(fn: Trade => T) = { 
     Future.traverse(trades) {trade =>
       Future { fn(trade) }
     }
+  }
 
   def sumTaxFees(trades: List[Trade]) = { 
     println("size = " + trades.size)
     val maybeTaxFees =
       onTrades[BigDecimal](trades) {trade =>
-        // Thread.sleep(10)
         trade.taxFees
              .map(_.map(_._2).foldLeft(BigDecimal(0))(_ + _))
              .getOrElse(sys.error("cannot get tax/fees"))
       }
-    maybeTaxFees.get.sum
+    Await.result(maybeTaxFees, 1 second).sum
   }
 }
 
@@ -98,11 +92,9 @@ class EventStore extends Actor with Listeners {
       events += ((trade, events.getOrElse(trade, List.empty[TradeEvent]) :+ closure))
       gossip(m)
     case Snapshot => 
-      self.reply(events.keys.map {trade =>
-        events(trade).foldLeft(trade)((t, e) => e(t))
-      })
+      sender ! (events.keys.map {trade => events(trade).foldLeft(trade)((t, e) => e(t))})
     case Closing =>
-      self.reply("closed")
+      sender ! "closed"
   }
 }
 
@@ -116,23 +108,14 @@ class QueryStore extends Actor {
     case ValueDateAdded(trade, closure) => 
       trades += trades.find(_ == trade).map(closure(_)).getOrElse(closure(trade))
     case QueryAllTrades =>
-      self.reply(trades.toList)
+      sender ! trades.toList
   }
 }
 
-// Creates and links Storage
-trait StoreFactory {this: Actor =>
-  val queryStore = this.self.spawnLink[QueryStore] // starts and links QueryStore
-  val eventStore = actorOf[EventStore]
-  this.self.link(eventStore)
-  eventStore.start
-  eventStore ! Listen(queryStore)
-}
-
 trait TradingServer extends Actor {
-  self.faultHandler = OneForOneStrategy(List(classOf[Exception]),5, 5000)
-  val eventStore: ActorRef
-  val queryStore: ActorRef
+  lazy val eventStore = context.actorOf(Props[EventStore], name = "event-store")
+  lazy val queryStore = context.actorOf(Props[QueryStore], name = "query-store")
+  eventStore ! Listen(queryStore)
 
   // actor message handler
   def receive = { 
@@ -149,12 +132,10 @@ trait TradingServer extends Actor {
   }
 
   override def postStop = {
-    self.unlink(queryStore)
-    self.unlink(eventStore)
-    queryStore.stop
-    eventStore.stop
+    context.stop(queryStore)
+    context.stop(eventStore)
   }
 }
 
-class TradingService extends TradingServer with StoreFactory {
+class TradingService extends TradingServer {
 }
