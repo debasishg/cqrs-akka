@@ -1,13 +1,5 @@
 package net.debasishg.domain.trade.model
 
-/**
- * Created by IntelliJ IDEA.
- * User: debasish
- * Date: 23/12/10
- * Time: 6:06 PM
- * To change this template use File | Settings | File Templates.
- */
-
 import scalaz._
 import Scalaz._
 
@@ -116,6 +108,19 @@ trait TradeModel extends Serializable {this: RefModel =>
     c.add(Calendar.DAY_OF_MONTH, 3)
     valueDateLens.set(trade, Some(c.getTime))
   }
+
+  sealed trait TradingEvent extends Event
+
+  case object NewTrade extends TradingEvent
+  case object EnrichTrade extends TradingEvent
+  case object AddValueDate extends TradingEvent
+  case object SendOutContractNote extends TradingEvent
+
+  sealed trait TradeState extends State 
+
+  case object Created extends TradeState
+  case object Enriched extends TradeState
+  case object ValueDateAdded extends TradeState
 }
 
 object TradeModel extends TradeModel with RefModel 
