@@ -21,7 +21,7 @@ case object Snapshot
 case object QueryAllTrades
 
 class TradingClient(ts: ActorRef, asys: ActorSystem) {
-  implicit val timeout = Timeout(12 millis)
+  implicit val timeout = asys.settings.ActorTimeout
   implicit val dispatcher = asys.dispatcherFactory.lookup("trading-dispatcher")
 
   // create a trade : wraps the model method

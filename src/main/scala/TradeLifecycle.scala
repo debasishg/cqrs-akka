@@ -5,32 +5,32 @@ import akka.util.duration._
 
 import TradeModel._
 
-class TradeLifecycle(trade: Trade) extends Actor with FSM[TradeState, Trade] {
+class TradeLifecycle(trade: Trade, log: EventLogg) extends Actor with FSM[TradeState, Trade] {
   import FSM._
 
   startWith(Created, trade)
 
   when(Created) {
     case Event(AddValueDate, data) =>
-      println("in state created: " + data)
+      log.appendAsync(Created, Some(data), AddValueDate)
       goto(ValueDateAdded) using addValueDate(data) forMax(5 seconds)
   }
 
   when(ValueDateAdded) {
     case Event(EnrichTrade, data) =>
-      println("in state valueDateAdded: " + data)
+      log.appendAsync(ValueDateAdded, None,  EnrichTrade)
       goto(Enriched) using enrichTrade(data) forMax(5 seconds)
   }
 
   when(Enriched) {
     case Event(SendOutContractNote, data) =>
-      println("in state enriched: " + data)
+      log.appendAsync(Enriched, Some(data),  SendOutContractNote)
       stop
   }
 
-  onTransition {
-    case Created -> ValueDateAdded => println("**** changing from created to valuedateadded")
-  }
+  // onTransition {
+    // case Created -> ValueDateAdded => println("**** changing from created to valuedateadded")
+  // }
 
   initialize
 }

@@ -15,7 +15,7 @@ class TradeLifecycleSpec extends Spec with ShouldMatchers with BeforeAndAfterAll
   import TradeModel._
 
   val system = ActorSystem("TradingSystem")
-  // override def afterAll = { system.shutdown() }
+  override def afterAll = { system.shutdown() }
 
   describe("trade lifecycle") {
     it("should work") {
@@ -28,13 +28,15 @@ class TradeLifecycleSpec extends Spec with ShouldMatchers with BeforeAndAfterAll
           Trade("a-125", "cisco", "r-125", NewYork, 20.25, 150),
           Trade("a-126", "ibm", "r-127", Singapore, 22.25, 250))
 
+      val log = new InMemoryEventLog(system)
       trds.foreach {trd =>
-        val tlc = system.actorOf(Props(new TradeLifecycle(trd)))
+        val tlc = system.actorOf(Props(new TradeLifecycle(trd, log)))
         tlc ! AddValueDate
         tlc ! EnrichTrade
         tlc ! SendOutContractNote
       }
-      // Thread.sleep(100)
+      Thread.sleep(1000)
+      log.foreach(println)
     }
   }
 }
