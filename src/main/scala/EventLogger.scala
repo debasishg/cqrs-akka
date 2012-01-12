@@ -1,11 +1,11 @@
 package net.debasishg.domain.trade.model
 
 import TradeModel._
-object EventLog {
+object EventLg {
   type LOG = List[(Trade, TradeEvent)]
 }
 
-import EventLog._
+import EventLg._
 
 case class EventLogger[A](log: LOG, a: A) {
   def map[B](f: A => B): EventLogger[B] =

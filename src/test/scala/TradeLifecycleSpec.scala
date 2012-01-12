@@ -8,17 +8,23 @@ import org.junit.runner.RunWith
 @RunWith(classOf[JUnitRunner])
 class TradeLifecycleSpec extends Spec with ShouldMatchers with BeforeAndAfterAll {
   import java.util.Calendar
-  import akka.actor.{Actor, ActorRef, Props, ActorSystem}
+  import akka.actor.{Actor, ActorRef, Props, ActorSystem, FSM}
+  import akka.dispatch.Await
   import akka.util.Timeout
   import akka.util.duration._
+  import akka.routing.Listen
   import Actor._
+  import FSM._
   import TradeModel._
 
   val system = ActorSystem("TradingSystem")
+  implicit val timeout = system.settings.ActorTimeout
   override def afterAll = { system.shutdown() }
 
   describe("trade lifecycle") {
     it("should work") {
+      val log = new InMemoryEventLog(system)
+      val finalTrades = new collection.mutable.ListBuffer[Trade]
 
       // make trades
       val trds = 
@@ -28,15 +34,24 @@ class TradeLifecycleSpec extends Spec with ShouldMatchers with BeforeAndAfterAll
           Trade("a-125", "cisco", "r-125", NewYork, 20.25, 150),
           Trade("a-126", "ibm", "r-127", Singapore, 22.25, 250))
 
-      val log = new InMemoryEventLog(system)
+      val qry = system.actorOf(Props(new TradeQueryStore))
       trds.foreach {trd =>
-        val tlc = system.actorOf(Props(new TradeLifecycle(trd, log)))
+        val tlc = system.actorOf(Props(new TradeLifecycle(trd, Some(log))))
+        tlc ! SubscribeTransitionCallBack(qry)
         tlc ! AddValueDate
         tlc ! EnrichTrade
-        tlc ! SendOutContractNote
+        val future = tlc ? SendOutContractNote
+        finalTrades += Await.result(future, timeout.duration).asInstanceOf[Trade]
       }
       Thread.sleep(1000)
-      log.foreach(println)
+
+      import TradeSnapshot._
+      val trades = snapshot(log, system)
+      finalTrades should equal(trades)
+
+      val f = qry ? QueryAllTrades
+      val qtrades = Await.result(f, timeout.duration).asInstanceOf[List[Trade]]
+      qtrades should equal(finalTrades)
     }
   }
 }
