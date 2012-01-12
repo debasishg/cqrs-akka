@@ -2,41 +2,44 @@ package net.debasishg.domain.trade.model
 
 import akka.actor.{Actor, FSM}
 import akka.util.duration._
-import akka.routing.Listeners
+import akka.util.Duration
 
 import TradeModel._
 
-class TradeLifecycle(trade: Trade, log: Option[EventLog]) extends Actor with FSM[TradeState, Trade] with Listeners {
+class TradeLifecycle(trade: Trade, timeout: Duration, log: Option[EventLog]) 
+  extends Actor with FSM[TradeState, Trade] {
   import FSM._
 
   startWith(Created, trade)
 
   when(Created) {
-    case m@Event(AddValueDate, data) =>
-      log.map(_.appendAsync(data.refNo, Created, Some(data), AddValueDate))
+    case Event(e@AddValueDate, data) =>
+      log.map(_.appendAsync(data.refNo, Created, Some(data), e))
       val trd = addValueDate(data)
-      notifyListeners(trd) // will change in Akka 2.0M3
-      goto(ValueDateAdded) using trd forMax(5 seconds)
+      notifyListeners(trd) 
+      goto(ValueDateAdded) using trd forMax(timeout)
   }
 
   when(ValueDateAdded) {
-    case m@Event(EnrichTrade, data) =>
-      log.map(_.appendAsync(data.refNo, ValueDateAdded, None,  EnrichTrade))
+    case Event(StateTimeout, _) =>
+      stay
+
+    case Event(e@EnrichTrade, data) =>
+      log.map(_.appendAsync(data.refNo, ValueDateAdded, None,  e))
       val trd = enrichTrade(data)
       notifyListeners(trd)
-      goto(Enriched) using trd forMax(5 seconds)
+      goto(Enriched) using trd forMax(timeout)
   }
 
   when(Enriched) {
-    case m@Event(SendOutContractNote, data) =>
-      log.map(_.appendAsync(data.refNo, Enriched, None,  SendOutContractNote))
+    case Event(StateTimeout, _) =>
+      stay
+
+    case Event(e@SendOutContractNote, data) =>
+      log.map(_.appendAsync(data.refNo, Enriched, None,  e))
       sender ! data
       stop
   }
-
-  // onTransition {
-    // case Created -> ValueDateAdded => println("**** changing from created to valuedateadded")
-  // }
 
   initialize
 }

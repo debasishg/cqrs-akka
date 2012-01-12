@@ -34,9 +34,12 @@ class TradeLifecycleSpec extends Spec with ShouldMatchers with BeforeAndAfterAll
           Trade("a-125", "cisco", "r-125", NewYork, 20.25, 150),
           Trade("a-126", "ibm", "r-127", Singapore, 22.25, 250))
 
+      // set up listeners
       val qry = system.actorOf(Props(new TradeQueryStore))
+
+      // do service
       trds.foreach {trd =>
-        val tlc = system.actorOf(Props(new TradeLifecycle(trd, Some(log))))
+        val tlc = system.actorOf(Props(new TradeLifecycle(trd, timeout.duration, Some(log))))
         tlc ! SubscribeTransitionCallBack(qry)
         tlc ! AddValueDate
         tlc ! EnrichTrade
@@ -45,10 +48,12 @@ class TradeLifecycleSpec extends Spec with ShouldMatchers with BeforeAndAfterAll
       }
       Thread.sleep(1000)
 
+      // get snapshot
       import TradeSnapshot._
       val trades = snapshot(log, system)
       finalTrades should equal(trades)
 
+      // check query store
       val f = qry ? QueryAllTrades
       val qtrades = Await.result(f, timeout.duration).asInstanceOf[List[Trade]]
       qtrades should equal(finalTrades)
