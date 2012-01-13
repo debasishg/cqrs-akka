@@ -5,9 +5,7 @@ import event.{EventLog, EventLogEntry}
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.dispatch._
 import akka.util.Duration
-import akka.util.duration._
-import model.TradeModel
-import TradeModel._
+import model.TradeModel._
 
 trait TradeSnapshot {
   def doSnapshot(log: EventLog, system: ActorSystem): List[Trade] = {

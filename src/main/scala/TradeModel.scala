@@ -90,8 +90,6 @@ trait TradeModel extends Serializable {this: RefModel =>
    * a set of closures
    */
 
-  // type TradeEvent = (Trade => Trade)
-
   // closure that enriches a trade
   val enrichTrade: Trade => Trade = {trade =>
     val taxes = for {

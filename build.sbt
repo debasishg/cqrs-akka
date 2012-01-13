@@ -14,6 +14,8 @@ libraryDependencies <++= scalaVersion { scalaVersion =>
   // The dependencies with proper scope
   Seq(
     "org.scala-lang.plugins"         % "continuations"   % scalaVersion,
+    "net.debasishg"                 %% "redisclient"     % "2.4.2",
+    "net.debasishg"                 %% "sjson"           % "0.15",
     "org.slf4j"                      % "slf4j-api"       % "1.6.1",
     "org.slf4j"                      % "slf4j-log4j12"   % "1.6.1"            % "provided",
     "log4j"                          % "log4j"           % "1.2.16"           % "provided",

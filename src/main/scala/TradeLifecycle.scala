@@ -4,11 +4,9 @@ package service
 import event.{EventLogEntry, EventLog}
 
 import akka.actor.{Actor, FSM}
-import akka.util.duration._
 import akka.util.Duration
 
-import model.TradeModel
-import TradeModel._
+import model.TradeModel._
 
 class TradeLifecycle(trade: Trade, timeout: Duration, log: Option[EventLog]) 
   extends Actor with FSM[TradeState, Trade] {

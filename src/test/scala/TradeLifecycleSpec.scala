@@ -17,8 +17,7 @@ class TradeLifecycleSpec extends Spec with ShouldMatchers with BeforeAndAfterAll
   import akka.routing.Listen
   import Actor._
   import FSM._
-  import model.TradeModel
-  import TradeModel._
+  import model.TradeModel._
 
   val system = ActorSystem("TradingSystem")
   implicit val timeout = system.settings.ActorTimeout
