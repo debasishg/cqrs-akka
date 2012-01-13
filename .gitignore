@@ -36,4 +36,5 @@ tm.out
 .classpath
 .idea
 .scala_dependencies
+*.swp
 multiverse.log

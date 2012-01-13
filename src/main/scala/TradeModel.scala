@@ -1,5 +1,7 @@
-package net.debasishg.domain.trade.model
+package net.debasishg.domain.trade
+package model
 
+import event.{Event, State}
 import scalaz._
 import Scalaz._
 
@@ -88,7 +90,7 @@ trait TradeModel extends Serializable {this: RefModel =>
    * a set of closures
    */
 
-  type TradeEvent = (Trade => Trade)
+  // type TradeEvent = (Trade => Trade)
 
   // closure that enriches a trade
   val enrichTrade: Trade => Trade = {trade =>

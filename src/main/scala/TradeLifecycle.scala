@@ -1,9 +1,13 @@
-package net.debasishg.domain.trade.model
+package net.debasishg.domain.trade
+package service
+
+import event.{EventLogEntry, EventLog}
 
 import akka.actor.{Actor, FSM}
 import akka.util.duration._
 import akka.util.Duration
 
+import model.TradeModel
 import TradeModel._
 
 class TradeLifecycle(trade: Trade, timeout: Duration, log: Option[EventLog]) 

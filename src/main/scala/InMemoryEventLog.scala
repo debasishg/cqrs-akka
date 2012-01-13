@@ -1,4 +1,5 @@
-package net.debasishg.domain.trade.model
+package net.debasishg.domain.trade
+package event
 
 import akka.dispatch._
 import akka.util.Timeout
@@ -7,7 +8,12 @@ import akka.actor.{Actor, ActorRef, Props, ActorSystem}
 import Actor._
 
 class InMemoryEventLog(as: ActorSystem) extends EventLog {
-  lazy val logger = as.actorOf(Props(new Logger), name = "event-logger")
+  val loggerActorName = "event-logger"
+
+  // need a pinned dispatcher to maintain order of log entries
+  val dispatcher = as.dispatcherFactory.newPinnedDispatcher(loggerActorName)
+
+  lazy val logger = as.actorOf(Props(new Logger).withDispatcher(dispatcher), name = loggerActorName)
   implicit val timeout = as.settings.ActorTimeout
 
   def iterator = iterator(0L)

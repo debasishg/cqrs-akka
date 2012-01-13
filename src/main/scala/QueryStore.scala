@@ -1,7 +1,9 @@
-package net.debasishg.domain.trade.model
+package net.debasishg.domain.trade
+package service
 
 import akka.actor.{Actor, FSM}
 import FSM._
+import model.TradeModel
 import TradeModel._
 
 case object QueryAllTrades

@@ -1,5 +1,7 @@
-package net.debasishg.domain.trade.model
+package net.debasishg.domain.trade
+package service
 
+import event.InMemoryEventLog
 import org.scalatest.{Spec, BeforeAndAfterAll}
 import org.scalatest.matchers.ShouldMatchers
 import org.scalatest.junit.JUnitRunner
@@ -15,6 +17,7 @@ class TradeLifecycleSpec extends Spec with ShouldMatchers with BeforeAndAfterAll
   import akka.routing.Listen
   import Actor._
   import FSM._
+  import model.TradeModel
   import TradeModel._
 
   val system = ActorSystem("TradingSystem")
