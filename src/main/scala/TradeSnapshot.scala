@@ -13,13 +13,11 @@ trait TradeSnapshot {
     val l = new collection.mutable.ListBuffer[Trade]
     var mar = Map.empty[String, ActorRef]
     log.foreach {entry =>
-      println("entry = " + entry)
       val EventLogEntry(id, oid, state, d, ev) = entry
-      println("state = " + state)
-      if (state == Created) {
+      if (state.toString == "Created") {
         mar += ((oid, system.actorOf(Props(new TradeLifecycle(d.asInstanceOf[Option[Trade]].get, timeout.duration, None)), name = "tlc-" + oid)))
         mar(oid) ! ev
-      } else if (state == Enriched) {
+      } else if (state.toString == "Enriched") {
         val future = mar(oid) ? SendOutContractNote
         l += Await.result(future, timeout.duration).asInstanceOf[Trade]
       } else {

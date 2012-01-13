@@ -26,7 +26,6 @@ class TradeLifecycleSpec extends Spec with ShouldMatchers with BeforeAndAfterAll
   override def afterAll = { system.shutdown() }
 
   describe("trade lifecycle") {
-/**
     it("should work with in memory event logging") {
       val log = new InMemoryEventLog(system)
       val finalTrades = new collection.mutable.ListBuffer[Trade]
@@ -63,7 +62,6 @@ class TradeLifecycleSpec extends Spec with ShouldMatchers with BeforeAndAfterAll
       val qtrades = Await.result(f, timeout.duration).asInstanceOf[List[Trade]]
       qtrades should equal(finalTrades)
     }
-**/
 
     it("should work with redis based event logging") {
       val clients = new RedisClientPool("localhost", 6379)

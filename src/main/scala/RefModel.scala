@@ -1,12 +1,5 @@
-package net.debasishg.domain.trade.model
-
-/**
- * Created by IntelliJ IDEA.
- * User: debasish
- * Date: 24/12/10
- * Time: 10:37 PM
- * To change this template use File | Settings | File Templates.
- */
+package net.debasishg.domain.trade
+package model
 
 trait RefModel extends Serializable {
   type Instrument = String

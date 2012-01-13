@@ -1,7 +1,8 @@
 package net.debasishg.domain.trade
 package event
 
-import util.Serialization
+import serialization.Serialization._
+import serialization.Util._
 import akka.dispatch._
 import akka.util.Timeout
 import akka.util.duration._
@@ -36,11 +37,14 @@ class RedisEventLog(clients: RedisClientPool, as: ActorSystem) extends EventLog 
   case class GetEntries()
 
   class Logger(clients: RedisClientPool) extends Actor {
+    implicit val format = Format {case l: EventLogEntry => serializeEventLogEntry(l)}
+    implicit val parseList = Parse[EventLogEntry](deSerializeEventLogEntry(_))
+
     def receive = {
       case LogEvent(id, state, data, event) =>
         val entry = EventLogEntry(RedisEventLog.nextId(), id, state, data, event)
         clients.withClient {client =>
-          client.lpush(RedisEventLog.logName, Serialization.serialize(entry))
+          client.lpush(RedisEventLog.logName, entry)
         }
         sender ! entry
 
@@ -48,16 +52,17 @@ class RedisEventLog(clients: RedisClientPool, as: ActorSystem) extends EventLog 
         import Parse.Implicits.parseByteArray
         val entries = 
           clients.withClient {client =>
-            client.lrange[Array[Byte]](RedisEventLog.logName, 0, -1)
+            client.lrange[EventLogEntry](RedisEventLog.logName, 0, -1)
           }
-        val ren = entries.map(_.map(e => Serialization.deserialize(e.get))).getOrElse(List.empty[EventLogEntry]).reverse
-        println("**************************")
-        ren.foreach(println)
-        println("**************************")
+        val ren = entries.map(_.map(e => e.get)).getOrElse(List.empty[EventLogEntry]).reverse
         sender ! ren
     }
   }
 }
+
+  import Parse.Implicits.parseDouble
+
+
 
 object RedisEventLog {
   var current = 0L
