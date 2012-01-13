@@ -1,4 +1,5 @@
-package net.debasishg.domain.trade.model
+package net.debasishg.domain.trade
+package util
 
 import java.io._
 

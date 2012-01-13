@@ -1,19 +1,22 @@
 package net.debasishg.domain.trade
 package event
 
+import util.Serialization
 import akka.dispatch._
 import akka.util.Timeout
 import akka.util.duration._
 import akka.actor.{Actor, ActorRef, Props, ActorSystem}
 import Actor._
+import com.redis._
+import com.redis.serialization._
 
-class InMemoryEventLog(as: ActorSystem) extends EventLog {
-  val loggerActorName = "memory-event-logger"
+class RedisEventLog(clients: RedisClientPool, as: ActorSystem) extends EventLog {
+  val loggerActorName = "redis-event-logger"
 
   // need a pinned dispatcher to maintain order of log entries
   val dispatcher = as.dispatcherFactory.newPinnedDispatcher(loggerActorName)
 
-  lazy val logger = as.actorOf(Props(new Logger).withDispatcher(dispatcher), name = loggerActorName)
+  lazy val logger = as.actorOf(Props(new Logger(clients)).withDispatcher(dispatcher), name = loggerActorName)
   implicit val timeout = as.settings.ActorTimeout
 
   def iterator = iterator(0L)
@@ -32,22 +35,33 @@ class InMemoryEventLog(as: ActorSystem) extends EventLog {
   case class LogEvent(objectId: String, state: State, data: Option[Any], event: Event)
   case class GetEntries()
 
-  class Logger extends Actor {
-    private var entries = List.empty[EventLogEntry]
+  class Logger(clients: RedisClientPool) extends Actor {
     def receive = {
       case LogEvent(id, state, data, event) =>
-        val entry = EventLogEntry(InMemoryEventLog.nextId(), id, state, data, event)
-        entries = entry :: entries
+        val entry = EventLogEntry(RedisEventLog.nextId(), id, state, data, event)
+        clients.withClient {client =>
+          client.lpush(RedisEventLog.logName, Serialization.serialize(entry))
+        }
         sender ! entry
 
       case GetEntries() =>
-        sender ! entries.reverse
+        import Parse.Implicits.parseByteArray
+        val entries = 
+          clients.withClient {client =>
+            client.lrange[Array[Byte]](RedisEventLog.logName, 0, -1)
+          }
+        val ren = entries.map(_.map(e => Serialization.deserialize(e.get))).getOrElse(List.empty[EventLogEntry]).reverse
+        println("**************************")
+        ren.foreach(println)
+        println("**************************")
+        sender ! ren
     }
   }
 }
 
-object InMemoryEventLog {
+object RedisEventLog {
   var current = 0L
+  def logName = "events"
   def nextId() = {
     current = current + 1
     current
