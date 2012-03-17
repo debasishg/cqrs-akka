@@ -4,12 +4,15 @@ package service
 import event.{EventLog, EventLogEntry}
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.dispatch._
-import akka.util.Duration
+import akka.pattern.ask
+import akka.util.{Timeout, Duration}
+import akka.util.duration._
 import model.TradeModel._
 
 trait TradeSnapshot {
   def doSnapshot(log: EventLog, system: ActorSystem): List[Trade] = {
-    implicit val timeout = system.settings.ActorTimeout
+    // implicit val timeout = system.settings.ActorTimeout
+    implicit val timeout = Timeout(20 seconds)
     val l = new collection.mutable.ListBuffer[Trade]
     var mar = Map.empty[String, ActorRef]
     log.foreach {entry =>

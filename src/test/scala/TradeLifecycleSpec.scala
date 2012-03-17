@@ -6,6 +6,9 @@ import org.scalatest.{Spec, BeforeAndAfterAll}
 import org.scalatest.matchers.ShouldMatchers
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
+import akka.pattern.ask
+import akka.util.Timeout
+import akka.util.duration._
 
 import com.redis._
 
@@ -22,7 +25,8 @@ class TradeLifecycleSpec extends Spec with ShouldMatchers with BeforeAndAfterAll
   import model.TradeModel._
 
   val system = ActorSystem("TradingSystem")
-  implicit val timeout = system.settings.ActorTimeout
+  // implicit val timeout = system.settings.ActorTimeout
+  implicit val timeout = Timeout(20 seconds)
   override def afterAll = { system.shutdown() }
 
   describe("trade lifecycle") {

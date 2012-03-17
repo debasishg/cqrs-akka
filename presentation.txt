@@ -1,0 +1,42 @@
+1. Immutable domain model using
+  - algebraic data types for representation
+  - pure functions to model domain behaviors 
+  - immutable structures like lenses for functional updates
+  - no in place mutation
+
+2. model becomes declarative & expressive
+
+3. How domain objects change state ?
+  - through events (aka commands)
+  - an event transitions a domain object from one state to another
+    o no mutation
+    o returns a new instance with new state (can be made efficient through implementation of persistent data structures. We use type lenses.)
+
+4. But how does the domain object reflect the current state ?
+  - through repeated state transitions
+  - all events are saved (event sourcing)
+  - ability to rollback to any point in time
+  - ability to clear all states and replay  
+  - events are immutable
+
+5. The essence of an application is to change states of domain objects and observe these changes and do some actions (which may be side-effects).
+  - state changes are done in the service layer through domain service APIs
+  - we model the service layer as a state machine (FSM)
+  - and the state machine as an actor (akka)
+
+6. State changes => 
+   aka commands => 
+   modeled as events => 
+   controlled through an FSM => 
+   isolation guaranteed through execution within an actor model
+
+7. What about queries ?
+  - CQRS (command query responsibility segregation)
+  - queries are modeled as subscribers of events
+  - commands publish events, queries subscribe to them
+  - a query store is also modeled as an actor
+    o scalability
+    o distribution (if remote actors are supported)
+
+8. Other subscribers ?
+  - logging 

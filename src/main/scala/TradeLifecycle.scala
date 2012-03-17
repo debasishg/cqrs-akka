@@ -18,7 +18,7 @@ class TradeLifecycle(trade: Trade, timeout: Duration, log: Option[EventLog])
     case Event(e@AddValueDate, data) =>
       log.map(_.appendAsync(data.refNo, Created, Some(data), e))
       val trd = addValueDate(data)
-      notifyListeners(trd) 
+      gossip(trd)
       goto(ValueDateAdded) using trd forMax(timeout)
   }
 
@@ -29,7 +29,7 @@ class TradeLifecycle(trade: Trade, timeout: Duration, log: Option[EventLog])
     case Event(e@EnrichTrade, data) =>
       log.map(_.appendAsync(data.refNo, ValueDateAdded, None,  e))
       val trd = enrichTrade(data)
-      notifyListeners(trd)
+      gossip(trd)
       goto(Enriched) using trd forMax(timeout)
   }
 

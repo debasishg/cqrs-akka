@@ -5,16 +5,18 @@ import akka.dispatch._
 import akka.util.Timeout
 import akka.util.duration._
 import akka.actor.{Actor, ActorRef, Props, ActorSystem}
+import akka.pattern.ask
 import Actor._
 
 class InMemoryEventLog(as: ActorSystem) extends EventLog {
   val loggerActorName = "memory-event-logger"
 
   // need a pinned dispatcher to maintain order of log entries
-  val dispatcher = as.dispatcherFactory.newPinnedDispatcher(loggerActorName)
+  // val dispatcher = as.dispatcherFactory.newPinnedDispatcher(loggerActorName)
 
-  lazy val logger = as.actorOf(Props(new Logger).withDispatcher(dispatcher), name = loggerActorName)
-  implicit val timeout = as.settings.ActorTimeout
+  lazy val logger = as.actorOf(Props(new Logger).withDispatcher("my-pinned-dispatcher"), name = loggerActorName)
+  // implicit val timeout = as.settings.ActorTimeout
+  implicit val timeout = Timeout(20 seconds)
 
   def iterator = iterator(0L)
 

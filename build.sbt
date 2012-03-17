@@ -6,7 +6,9 @@ version := "0.1"
 
 crossScalaVersions := Seq("2.9.1", "2.9.0", "2.8.1", "2.8.0")
 
-resolvers ++= Seq("Twitter Repository" at "http://maven.twttr.com", "Akka Repository" at "http://akka.io/repository")
+// resolvers ++= Seq("Twitter Repository" at "http://maven.twttr.com", "Akka Repository" at "http://akka.io/repository")
+
+resolvers ++= Seq("Akka Repository" at "http://repo.typesafe.com/typesafe/releases/")
 
 libraryDependencies <++= scalaVersion { scalaVersion =>
   // Helper for dynamic version switching based on scalaVersion
@@ -22,8 +24,8 @@ libraryDependencies <++= scalaVersion { scalaVersion =>
     "junit"                          % "junit"           % "4.8.1"            % "test",
     "org.scalatest"                 %% "scalatest"       % "1.6.1"            % "test",
     "org.scalaz"                    %% "scalaz-core"     % "6.0.3",
-    "com.typesafe.akka"              % "akka-actor"      % "2.0-M1",
-    "com.typesafe.akka"              % "akka-testkit"    % "2.0-M1",
+    "com.typesafe.akka"              % "akka-actor"      % "2.0",
+    "com.typesafe.akka"              % "akka-testkit"    % "2.0",
     "ch.qos.logback"                 % "logback-classic" % "0.9.28"           % "runtime"
   )
 }
